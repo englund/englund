@@ -17,30 +17,41 @@
     var canvas = document.getElementById('canvas');
     var context = canvas.getContext('2d');
 
+
+    // Older browsers might not implement mediaDevices at all, so we set an empty object first
+    if (navigator.mediaDevices === undefined) {
+        navigator.mediaDevices = {};
+    }
+
+    // Some browsers partially implement mediaDevices. We can't just assign an object
+    // with getUserMedia as it would overwrite existing properties.
+    // Here, we will just add the getUserMedia property if it's missing.
+    if (navigator.mediaDevices.getUserMedia === undefined) {
+        navigator.mediaDevices.getUserMedia = function(constraints) {
+
+        // First get ahold of the legacy getUserMedia, if present
+        var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+        // Some browsers just don't implement it - return a rejected promise with an error
+        // to keep a consistent interface
+        if (!getUserMedia) {
+            alert('getUserMedia is not implemented in this browser');
+            return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
+        }
+
+        // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
+        return new Promise(function(resolve, reject) {
+            getUserMedia.call(navigator, constraints, resolve, reject);
+        });
+    }
+    }
+
     var mediaConfig =  { video: true };
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia(mediaConfig).then(function(stream) {
             video.srcObject = stream;
             video.play();
         });
-    }
-
-    /* Legacy code below! */
-    else if (navigator.getUserMedia) { // Standard
-        navigator.getUserMedia(mediaConfig, function(stream) {
-            video.src = stream;
-            video.play();
-        }, console.error);
-    } else if (navigator.webkitGetUserMedia) { // WebKit-prefixed
-        navigator.webkitGetUserMedia(mediaConfig, function(stream) {
-            video.src = window.webkitURL.createObjectURL(stream);
-            video.play();
-        }, console.error);
-    } else if (navigator.mozGetUserMedia) { // Mozilla-prefixed
-        navigator.mozGetUserMedia(mediaConfig, function(stream) {
-            video.src = window.URL.createObjectURL(stream);
-            video.play();
-        }, console.error);
     }
 
     // Trigger photo take
